@@ -35,6 +35,10 @@ class v2 {
         return new v2(this.x*val, this.y*val);
     }
 
+    DistanceTo(that: v2): number {
+        return that.Subtract(this).Length();
+    }
+
     Array(): [number, number] {
         return [this.x, this.y];
     }
@@ -61,8 +65,41 @@ function GetCanvasSize(context: CanvasRenderingContext2D): v2 {
     return new v2(context.canvas.width, context.canvas.height);
 }
 
+function SnapFloorCeiling(x: number, dx: number, epsilon: number): number {
+    if(dx > 0) return Math.ceil(x + Math.sign(dx)*epsilon);
+    if(dx < 0) return Math.floor(x + Math.sign(dx)*epsilon);
+    return x;
+}
+
 function RayStep(p1: v2, p2: v2): v2 {
-    return p2.Subtract(p1).Normalize().Add(p2);
+    const epsilon = 1e-3;
+    let p3 = p2;
+    const d = p2.Subtract(p1);
+
+    if(d.x !== 0) {
+        const m = d.y/d.x;
+        const c = p1.y - m*p1.x;
+        {
+            const x3 = SnapFloorCeiling(p2.x, d.x, epsilon);
+            const y3 = x3*m + c;
+            p3 = new v2(x3, y3);
+        }
+
+        if(m !== 0) {
+            const y3 = SnapFloorCeiling(p2.y, d.y, epsilon);
+            const x3 = (y3 - c)/m;
+            const p3t = new v2(x3, y3);
+            if(p2.DistanceTo(p3t) < p2.DistanceTo(p3)) {
+                p3 = p3t;
+            }
+        }
+    } else {
+        const y3 = SnapFloorCeiling(p2.y, d.y, epsilon);
+        const x3 = p2.x;
+        p3 = new v2(x3, y3);
+    }
+
+    return p3;
 }
 
 function RenderGrid(context: CanvasRenderingContext2D, p2: v2 | undefined) {
@@ -84,16 +121,18 @@ function RenderGrid(context: CanvasRenderingContext2D, p2: v2 | undefined) {
     }
 
     let p1 = new v2(COLS*0.43, ROWS*0.33);
-    context.fillStyle = "magenta";
+    context.fillStyle = "yellow";
     DrawFilledCircle(context, p1, 0.2);
     if(p2 !== undefined) {
-        DrawFilledCircle(context, p2, 0.2);
-        context.strokeStyle = "magenta";
-        DrawLine(context, p1, p2);
-
-        const p3 = RayStep(p1, p2);
-        DrawFilledCircle(context, p3, 0.2);
-        DrawLine(context, p2, p3);
+        for(let i = 0; i < 5; ++i) {
+            DrawFilledCircle(context, p2, 0.2);
+            context.strokeStyle = "yellow";
+            DrawLine(context, p1, p2);
+    
+            const p3 = RayStep(p1, p2);
+            p1 = p2;
+            p2 = p3;
+        }
     }
 }
 
