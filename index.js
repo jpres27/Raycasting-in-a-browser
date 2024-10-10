@@ -1,8 +1,10 @@
 "use strict";
 const EPSILON = 1e-3;
 const NEAR_PLANE = 1.0;
+const FAR_PLANE = 10.0;
 const FOV = Math.PI * 0.5;
-const RAYS = 100;
+const RAYS = 200;
+const STEP_LENGTH = 0.3;
 class v2 {
     constructor(x, y) {
         this.x = x;
@@ -43,6 +45,9 @@ class v2 {
     Lerp(that, t) {
         return that.Subtract(this).Scale(t).Add(this);
     }
+    Dot(that) {
+        return this.x * that.x + this.y * that.y;
+    }
     DistanceTo(that) {
         return that.Subtract(this).Length();
     }
@@ -59,8 +64,8 @@ class player {
 function GetFOV(Player) {
     const p = Player.position.Add(v2.FromAngle(Player.direction).Scale(NEAR_PLANE));
     const l = Math.tan(FOV * 0.5) * NEAR_PLANE;
-    const p1 = p.Add(p.Subtract(Player.position).Rot90().Normalize().Scale(l));
-    const p2 = p.Subtract(p.Subtract(Player.position).Rot90().Normalize().Scale(l));
+    const p1 = p.Subtract(p.Subtract(Player.position).Rot90().Normalize().Scale(l));
+    const p2 = p.Add(p.Subtract(Player.position).Rot90().Normalize().Scale(l));
     return [p1, p2];
 }
 function DrawLine(context, p1, p2) {
@@ -120,7 +125,11 @@ function CheckIfWithinLevel(Level_Map, p) {
     return 0 <= p.x && p.x < size.x && 0 <= p.y && p.y < size.y;
 }
 function CastRay(Level_Map, p1, p2) {
-    while (CheckIfWithinLevel(Level_Map, p2) && Level_Map[p2.y][p2.x] === 0) {
+    for (;;) {
+        const cell = GetCell(p1, p2);
+        if (!CheckIfWithinLevel(Level_Map, cell) || Level_Map[cell.y][cell.x] !== 0) {
+            break;
+        }
         const p3 = RayStep(p1, p2);
         p1 = p2;
         p2 = p3;
@@ -137,12 +146,12 @@ function GetLevelSize(Level_Map) {
 }
 function RenderMinimap(context, Player, position, size, level_map) {
     context.save();
-    context.fillStyle = "#181818";
-    context.fillRect(0, 0, context.canvas.width, context.canvas.height);
     const grid_size = GetLevelSize(level_map);
     context.translate(...position.Array());
     context.scale(...size.Divide(grid_size).Array());
     context.lineWidth = 0.04;
+    context.fillStyle = "#181818";
+    context.fillRect(0, 0, ...grid_size.Array());
     for (let y = 0; y < grid_size.y; ++y) {
         for (let x = 0; x < grid_size.x; ++x) {
             if (level_map[y][x] !== 0) {
@@ -168,16 +177,29 @@ function RenderMinimap(context, Player, position, size, level_map) {
     context.restore();
 }
 function RenderGame(Context, Player, Level_Map) {
-    const Strip_Width = Context.canvas.width / RAYS;
-    const [p1, p2] = GetFOV(Player);
-    Context.fillStyle = "green";
+    const Strip_Width = Math.ceil(Context.canvas.width / RAYS);
+    const [r1, r2] = GetFOV(Player);
     for (let x = 0; x < RAYS; ++x) {
-        const Ray_Collision_Point = CastRay(Level_Map, Player.position, p1.Lerp(p2, x / RAYS));
+        const Ray_Collision_Point = CastRay(Level_Map, Player.position, r1.Lerp(r2, x / RAYS));
         const Cell = GetCell(Player.position, Ray_Collision_Point);
-        if (CheckIfWithinLevel(Level_Map, Cell) && Level_Map[Cell.y][Cell.x] == 0) {
-            Context.fillRect(x * Strip_Width, 0, Strip_Width, Context.canvas.height);
+        if (CheckIfWithinLevel(Level_Map, Cell) && Level_Map[Cell.y][Cell.x] !== 0) {
+            const v = Ray_Collision_Point.Subtract(Player.position);
+            const d = v2.FromAngle(Player.direction);
+            const PerpWallDist = v.Dot(d);
+            const Wall_Height = Context.canvas.height / PerpWallDist;
+            Context.fillStyle = `rgba(3, 99, 52, 1)`;
+            Context.fillRect(x * Strip_Width, (Context.canvas.height - Wall_Height) * 0.5, Strip_Width, Wall_Height);
         }
     }
+}
+function Render(Context, Player, Level_Data) {
+    const Minimap_Pos = v2.Zero().Add(GetCanvasSize(Context).Scale(0.03));
+    const Cell_Size = Context.canvas.width * 0.02;
+    const Minimap_Size = GetLevelSize(Level_Data).Scale(Cell_Size);
+    Context.fillStyle = "#181818";
+    Context.fillRect(0, 0, Context.canvas.width, Context.canvas.height);
+    RenderGame(Context, Player, Level_Data);
+    RenderMinimap(Context, Player, Minimap_Pos, Minimap_Size, Level_Data);
 }
 (() => {
     let Level_Data = [
@@ -185,7 +207,7 @@ function RenderGame(Context, Player, Level_Map) {
         [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
         [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
         [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
-        [0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0],
         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -201,11 +223,36 @@ function RenderGame(Context, Player, Level_Map) {
     if (Context === null) {
         throw new Error("2d context is null");
     }
+    let Player = new player(GetLevelSize(Level_Data).Multiply(new v2(0.83, 0.73)), Math.PI * 1.25);
+    window.addEventListener("keydown", (e) => {
+        switch (e.code) {
+            case 'KeyW':
+                {
+                    Player.position = Player.position.Add(v2.FromAngle(Player.direction).Scale(STEP_LENGTH));
+                    Render(Context, Player, Level_Data);
+                }
+                break;
+            case 'KeyS':
+                {
+                    Player.position = Player.position.Subtract(v2.FromAngle(Player.direction).Scale(STEP_LENGTH));
+                    Render(Context, Player, Level_Data);
+                }
+                break;
+            case 'KeyD':
+                {
+                    Player.direction += Math.PI * 0.03;
+                    Render(Context, Player, Level_Data);
+                }
+                break;
+            case 'KeyA':
+                {
+                    Player.direction -= Math.PI * 0.03;
+                    Render(Context, Player, Level_Data);
+                }
+                break;
+        }
+    });
     const grid_size = GetCanvasSize(Context);
-    let Player = new player(GetLevelSize(Level_Data).Multiply(new v2(0.93, 0.93)), 0);
-    let Minimap_Pos = v2.Zero().Add(GetCanvasSize(Context).Scale(0.03));
-    let Cell_Size = Context.canvas.width * 0.02;
-    let Minimap_Size = GetLevelSize(Level_Data).Scale(Cell_Size);
-    RenderGame(Context, Player, Level_Data);
-    RenderMinimap(Context, Player, Minimap_Pos, Minimap_Size, Level_Data);
+    Render(Context, Player, Level_Data);
 })();
+//# sourceMappingURL=index.js.map
