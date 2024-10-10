@@ -1,5 +1,5 @@
 "use strict";
-const EPSILON = 1e-3;
+const EPSILON = 1e-6;
 const NEAR_PLANE = 1.0;
 const FAR_PLANE = 10.0;
 const FOV = Math.PI * 0.5;
