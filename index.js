@@ -51,6 +51,12 @@ class v2 {
     DistanceTo(that) {
         return that.Subtract(this).Length();
     }
+    SqrLength() {
+        return this.x * this.x + this.y * this.y;
+    }
+    SqrDistanceTo(that) {
+        return that.Subtract(this).SqrLength();
+    }
     Array() {
         return [this.x, this.y];
     }
@@ -108,7 +114,7 @@ function RayStep(p1, p2) {
             const y3 = SnapFloorCeiling(p2.y, d.y);
             const x3 = (y3 - c) / m;
             const p3t = new v2(x3, y3);
-            if (p2.DistanceTo(p3t) < p2.DistanceTo(p3)) {
+            if (p2.SqrDistanceTo(p3t) < p2.SqrDistanceTo(p3)) {
                 p3 = p3t;
             }
         }
@@ -124,10 +130,11 @@ function CheckIfWithinLevel(Level_Map, p) {
     const size = GetLevelSize(Level_Map);
     return 0 <= p.x && p.x < size.x && 0 <= p.y && p.y < size.y;
 }
-function CastRay(Level_Map, p1, p2) {
-    for (;;) {
+function CastRay(Context, Level_Map, p1, p2) {
+    let Start = p1;
+    while (Start.SqrDistanceTo(p1) < Context.canvas.height * Context.canvas.height) {
         const cell = GetCell(p1, p2);
-        if (!CheckIfWithinLevel(Level_Map, cell) || Level_Map[cell.y][cell.x] !== 0) {
+        if (CheckIfWithinLevel(Level_Map, cell) && Level_Map[cell.y][cell.x] !== 0) {
             break;
         }
         const p3 = RayStep(p1, p2);
@@ -180,14 +187,35 @@ function RenderGame(Context, Player, Level_Map) {
     const Strip_Width = Math.ceil(Context.canvas.width / RAYS);
     const [r1, r2] = GetFOV(Player);
     for (let x = 0; x < RAYS; ++x) {
-        const Ray_Collision_Point = CastRay(Level_Map, Player.position, r1.Lerp(r2, x / RAYS));
+        const Ray_Collision_Point = CastRay(Context, Level_Map, Player.position, r1.Lerp(r2, x / RAYS));
         const Cell = GetCell(Player.position, Ray_Collision_Point);
         if (CheckIfWithinLevel(Level_Map, Cell) && Level_Map[Cell.y][Cell.x] !== 0) {
             const v = Ray_Collision_Point.Subtract(Player.position);
             const d = v2.FromAngle(Player.direction);
             const PerpWallDist = v.Dot(d);
             const Wall_Height = Context.canvas.height / PerpWallDist;
-            Context.fillStyle = `rgba(3, 99, 52, 1)`;
+            switch (Level_Map[Cell.y][Cell.x]) {
+                case 1:
+                    {
+                        Context.fillStyle = `rgba(3, 99, 52, 1)`;
+                    }
+                    break;
+                case 2:
+                    {
+                        Context.fillStyle = "blue";
+                    }
+                    break;
+                case 3:
+                    {
+                        Context.fillStyle = "yellow";
+                    }
+                    break;
+                case 4:
+                    {
+                        Context.fillStyle = "cyan";
+                    }
+                    break;
+            }
             Context.fillRect(x * Strip_Width, (Context.canvas.height - Wall_Height) * 0.5, Strip_Width, Wall_Height);
         }
     }
@@ -203,14 +231,14 @@ function Render(Context, Player, Level_Data) {
 }
 (() => {
     let Level_Data = [
-        [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [1, 4, 4, 4, 4, 1, 1, 1, 1, 1, 2],
+        [2, 0, 0, 0, 0, 0, 0, 1, 0, 0, 2],
+        [3, 0, 0, 0, 0, 0, 0, 1, 0, 0, 2],
+        [4, 0, 0, 0, 0, 0, 0, 1, 0, 0, 2],
+        [3, 0, 0, 0, 0, 0, 1, 1, 0, 0, 2],
+        [2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4],
+        [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4],
+        [2, 4, 3, 2, 3, 1, 4, 3, 2, 3, 4],
     ];
     const Game = document.getElementById("game");
     if (Game === null) {
