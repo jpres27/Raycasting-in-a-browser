@@ -1,9 +1,10 @@
 const EPSILON = 1e-6;
-const NEAR_PLANE = 1.0;
+const NEAR_PLANE = 0.25;
 const FAR_PLANE = 10.0;
 const FOV = Math.PI*0.5;
 const RAYS = 200;
 const STEP_LENGTH = 0.3;
+const SPEED = 3.6;
 
 class v2 {
     x: number;
@@ -299,28 +300,74 @@ function Render(Context: CanvasRenderingContext2D, Player: player, Level_Data: l
 
     let Player = new player(GetLevelSize(Level_Data).Multiply(new v2(0.83, 0.73)), Math.PI*1.25);
 
+    let MovingFwd = false;
+    let MovingBwd = false;
+    let TurnLeft = false;
+    let TurnRight = false;
+
     window.addEventListener("keydown", (e) => {
-            switch (e.code) {
-                case 'KeyW': {
-                    Player.position = Player.position.Add(v2.FromAngle(Player.direction).Scale(STEP_LENGTH));
-                    Render(Context, Player, Level_Data);
-                } break;
-                case 'KeyS': {
-                    Player.position = Player.position.Subtract(v2.FromAngle(Player.direction).Scale(STEP_LENGTH));
-                    Render(Context, Player, Level_Data);
-                } break;
-                case 'KeyD': {
-                    Player.direction += Math.PI*0.03;
-                    Render(Context, Player, Level_Data);
-                } break;
-                case 'KeyA': {
-                    Player.direction -= Math.PI*0.03;
-                    Render(Context, Player, Level_Data);
-                } break;
-            }
+        switch (e.code) {
+            case 'KeyW': {
+                MovingFwd = true;
+            } break;
+            case 'KeyS': {
+                MovingBwd = true;
+            } break;
+            case 'KeyD': {
+                TurnRight = true;
+            } break;
+            case 'KeyA': {
+                TurnLeft = true;
+            } break;
+        }
     })
 
-    const grid_size = GetCanvasSize(Context);
+    window.addEventListener("keyup", (e) => {
+        switch (e.code) {
+            case 'KeyW': {
+                MovingFwd = false;
+            } break;
+            case 'KeyS': {
+                MovingBwd = false;
+            } break;
+            case 'KeyD': {
+                TurnRight = false;
+            } break;
+            case 'KeyA': {
+                TurnLeft = false;
+            } break;
+        }
+})
 
-    Render(Context, Player, Level_Data);
+    const grid_size = GetCanvasSize(Context);
+    
+    let PrevTime = 0;
+    const frame = function (Time: number) {
+        const DeltaTime = (Time - PrevTime)/1000;
+        PrevTime = Time;
+        let Velocity = v2.Zero();
+        let AngularVelocity = 0.0;
+        if(MovingFwd) {
+            Velocity = Velocity.Add(v2.FromAngle(Player.direction).Scale(SPEED));
+        }
+        if(MovingBwd) {
+            Velocity = Velocity.Subtract(v2.FromAngle(Player.direction).Scale(SPEED));
+        }
+        if(TurnRight) {
+            AngularVelocity += Math.PI*0.9;
+        }
+        if(TurnLeft) {
+            AngularVelocity -= Math.PI*0.9;
+        }
+        Player.direction = Player.direction + AngularVelocity*DeltaTime;
+        Player.position = Player.position.Add(Velocity.Scale(DeltaTime));
+        Render(Context, Player, Level_Data);
+        window.requestAnimationFrame(frame);
+    }
+    window.requestAnimationFrame((Time) => {
+        PrevTime = Time;
+        window.requestAnimationFrame(frame);
+        })
+
+    
 })()
