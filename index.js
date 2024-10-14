@@ -62,6 +62,23 @@ class v2 {
         return [this.x, this.y];
     }
 }
+class rgba {
+    constructor(r, g, b, a) {
+        this.r = r;
+        this.g = g;
+        this.b = b;
+        this.a = a;
+    }
+    Brightness(factor) {
+        return new rgba(factor * this.r, factor * this.g, factor * this.b, this.a);
+    }
+    StringNormalized() {
+        return `rgba(${Math.floor(this.r * 255)}, ${Math.floor(this.g * 255)}, ${Math.floor(this.b * 255)}, ${this.a})`;
+    }
+    String() {
+        return `rgba(${this.r}, ${this.g}, ${this.b}, ${this.a})`;
+    }
+}
 class player {
     constructor(position, direction) {
         this.position = position;
@@ -198,22 +215,22 @@ function RenderGame(Context, Player, Level_Map) {
             switch (Level_Map[Cell.y][Cell.x]) {
                 case 1:
                     {
-                        Context.fillStyle = `rgba(3, 99, 52, 1)`;
+                        Context.fillStyle = new rgba(3, 99, 52, 1).Brightness(1 / PerpWallDist).String();
                     }
                     break;
                 case 2:
                     {
-                        Context.fillStyle = "blue";
+                        Context.fillStyle = new rgba(34, 102, 195, 1).Brightness(1 / PerpWallDist).String();
                     }
                     break;
                 case 3:
                     {
-                        Context.fillStyle = "yellow";
+                        Context.fillStyle = new rgba(221, 149, 68, 1).Brightness(1 / PerpWallDist).String();
                     }
                     break;
                 case 4:
                     {
-                        Context.fillStyle = "cyan";
+                        Context.fillStyle = new rgba(0, 12, 101, 1).Brightness(1 / PerpWallDist).String();
                     }
                     break;
             }
