@@ -1,9 +1,18 @@
 "use strict";
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
 const EPSILON = 1e-6;
 const NEAR_PLANE = 0.25;
 const FAR_PLANE = 10.0;
 const FOV = Math.PI * 0.5;
-const RAYS = 200;
+const RAYS = 600;
 const STEP_LENGTH = 0.3;
 const SPEED = 3.6;
 class v2 {
@@ -246,6 +255,26 @@ function Render(Context, Player, Level_Data) {
     Context.fillRect(0, 0, Context.canvas.width, Context.canvas.height);
     RenderGame(Context, Player, Level_Data);
     RenderMinimap(Context, Player, Minimap_Pos, Minimap_Size, Level_Data);
+}
+function LoadImg(url) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const Img = new Image();
+        Img.src = url;
+        Img.crossOrigin = "anonymous";
+        return new Promise((resolve, reject) => {
+            Img.onload = () => {
+                const canvas = document.createElement("canvas");
+                canvas.width = Img.width;
+                canvas.height = Img.height;
+                const Context = canvas.getContext("2d");
+                if (Context === null)
+                    throw new Error("lol");
+                Context.drawImage(Img, 0, 0);
+                resolve(Context.getImageData(0, 0, Img.width, Img.height));
+            };
+            Img.onerror = reject;
+        });
+    });
 }
 (() => {
     let Level_Data = [

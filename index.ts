@@ -2,7 +2,7 @@ const EPSILON = 1e-6;
 const NEAR_PLANE = 0.25;
 const FAR_PLANE = 10.0;
 const FOV = Math.PI*0.5;
-const RAYS = 200;
+const RAYS = 600;
 const STEP_LENGTH = 0.3;
 const SPEED = 3.6;
 
@@ -257,7 +257,7 @@ function RenderMinimap(context: CanvasRenderingContext2D, Player: player,
     context.restore();
 }
 
-function RenderGame(Context: CanvasRenderingContext2D, Player: player, Level_Map: level_map) {
+function RenderGame(Context: CanvasRenderingContext2D, Player: player, Level_Map: level_map, Textures: Promise<ImageData>[]) {
     const Strip_Width = Math.ceil(Context.canvas.width/RAYS);
     
     const [r1, r2] = GetFOV(Player);
@@ -273,6 +273,8 @@ function RenderGame(Context: CanvasRenderingContext2D, Player: player, Level_Map
             switch(Level_Map[Cell.y][Cell.x]) {
                 case 1: {
                     Context.fillStyle = new rgba(3, 99, 52, 1).Brightness(1/PerpWallDist).String();
+                    // imgdata = loadimg()
+                    // Context.putImageData(imgdata, x, y);
                 } break;
                 case 2: {
                     Context.fillStyle = new rgba(34, 102,195, 1).Brightness(1/PerpWallDist).String();
@@ -289,17 +291,38 @@ function RenderGame(Context: CanvasRenderingContext2D, Player: player, Level_Map
     }
 }
 
-function Render(Context: CanvasRenderingContext2D, Player: player, Level_Data: level_map) {
+function Render(Context: CanvasRenderingContext2D, Player: player, Level_Data: level_map, Textures: Promise<ImageData>[]) {
     const Minimap_Pos = v2.Zero().Add(GetCanvasSize(Context).Scale(0.03));
     const Cell_Size = Context.canvas.width*0.02;
     const Minimap_Size = GetLevelSize(Level_Data).Scale(Cell_Size);
     Context.fillStyle = "#181818";
     Context.fillRect(0, 0, Context.canvas.width, Context.canvas.height);
-    RenderGame(Context, Player, Level_Data)
+    RenderGame(Context, Player, Level_Data, Textures)
     RenderMinimap(Context, Player, Minimap_Pos, Minimap_Size, Level_Data);
 }
 
+async function LoadImg(url: string): Promise<ImageData> {
+    const Img = new Image();
+    Img.src = url;
+    Img.crossOrigin = "anonymous";
+    return new Promise((resolve, reject) => {
+        Img.onload = () => {
+            const canvas = document.createElement("canvas");
+            canvas.width = Img.width;
+            canvas.height = Img.height;
+            const Context = canvas.getContext("2d");
+            if(Context === null) throw new Error("lol");
+            Context.drawImage(Img, 0, 0);
+            resolve(Context.getImageData(0, 0, Img.width, Img.height));
+        };
+        Img.onerror = reject;
+    });
+}
+
 (() => {
+    const Tex01 = LoadImg("./textures/tile14.png");
+    const Textures = [Tex01];
+
     let Level_Data = [
         [1, 4, 4, 4, 4, 1, 1, 1, 1, 1, 2],
         [2, 0, 0, 0, 0, 0, 0, 1, 0, 0, 2],
@@ -387,7 +410,7 @@ function Render(Context: CanvasRenderingContext2D, Player: player, Level_Data: l
         }
         Player.direction = Player.direction + AngularVelocity*DeltaTime;
         Player.position = Player.position.Add(Velocity.Scale(DeltaTime));
-        Render(Context, Player, Level_Data);
+        Render(Context, Player, Level_Data, Textures);
         window.requestAnimationFrame(frame);
     }
     window.requestAnimationFrame((Time) => {
