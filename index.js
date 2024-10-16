@@ -210,50 +210,65 @@ function RenderMinimap(context, Player, position, size, level_map) {
     DrawLine(context, Player.position, p2);
     context.restore();
 }
-function RenderGame(Context, Player, Level_Map) {
+function RenderGame(Context, Player, Level_Map, Textures) {
     const Strip_Width = Math.ceil(Context.canvas.width / RAYS);
     const [r1, r2] = GetFOV(Player);
     for (let x = 0; x < RAYS; ++x) {
-        const Ray_Collision_Point = CastRay(Context, Level_Map, Player.position, r1.Lerp(r2, x / RAYS));
-        const Cell = GetCell(Player.position, Ray_Collision_Point);
-        if (CheckIfWithinLevel(Level_Map, Cell) && Level_Map[Cell.y][Cell.x] !== 0) {
-            const v = Ray_Collision_Point.Subtract(Player.position);
-            const d = v2.FromAngle(Player.direction);
-            const PerpWallDist = v.Dot(d);
-            const Wall_Height = Context.canvas.height / PerpWallDist;
-            switch (Level_Map[Cell.y][Cell.x]) {
-                case 1:
-                    {
-                        Context.fillStyle = new rgba(3, 99, 52, 1).Brightness(1 / PerpWallDist).String();
-                    }
-                    break;
-                case 2:
-                    {
-                        Context.fillStyle = new rgba(34, 102, 195, 1).Brightness(1 / PerpWallDist).String();
-                    }
-                    break;
-                case 3:
-                    {
-                        Context.fillStyle = new rgba(221, 149, 68, 1).Brightness(1 / PerpWallDist).String();
-                    }
-                    break;
-                case 4:
-                    {
-                        Context.fillStyle = new rgba(0, 12, 101, 1).Brightness(1 / PerpWallDist).String();
-                    }
-                    break;
+        const CollisionPoint = CastRay(Context, Level_Map, Player.position, r1.Lerp(r2, x / RAYS));
+        const CollisionCell = GetCell(Player.position, CollisionPoint);
+        if (CheckIfWithinLevel(Level_Map, CollisionCell) && Level_Map[CollisionCell.y][CollisionCell.x] !== 0) {
+            const Cell = Level_Map[CollisionCell.y][CollisionCell.x];
+            if (Cell !== 0) {
+                const v = CollisionPoint.Subtract(Player.position);
+                const d = v2.FromAngle(Player.direction);
+                const PerpWallDist = v.Dot(d);
+                const Wall_Height = Context.canvas.height / PerpWallDist;
+                const t = CollisionPoint.Subtract(CollisionCell);
+                let u;
+                if ((Math.abs(t.x) < EPSILON || Math.abs(t.x - 1) < EPSILON) && t.y > 0) {
+                    u = t.y;
+                }
+                else {
+                    u = t.x;
+                }
+                switch (Cell) {
+                    case 1:
+                        {
+                            // Context.fillStyle = new rgba(3, 99, 52, 1).Brightness(1/PerpWallDist).String();
+                            Context.drawImage(Textures[0], u * Textures[0].width, 0, 1, Textures[0].height, x * Strip_Width, (Context.canvas.height - Wall_Height) * 0.5, Strip_Width, Wall_Height);
+                        }
+                        break;
+                    case 2:
+                        {
+                            // Context.fillStyle = new rgba(34, 102,195, 1).Brightness(1/PerpWallDist).String();
+                            Context.drawImage(Textures[1], u * Textures[1].width, 0, 1, Textures[1].height, x * Strip_Width, (Context.canvas.height - Wall_Height) * 0.5, Strip_Width, Wall_Height);
+                        }
+                        break;
+                    case 3:
+                        {
+                            // Context.fillStyle = new rgba(221, 149, 68, 1).Brightness(1/PerpWallDist).String();
+                            Context.drawImage(Textures[2], u * Textures[2].width, 0, 1, Textures[2].height, x * Strip_Width, (Context.canvas.height - Wall_Height) * 0.5, Strip_Width, Wall_Height);
+                        }
+                        break;
+                    case 4:
+                        {
+                            // Context.fillStyle = new rgba(0, 12, 101, 1).Brightness(1/PerpWallDist).String();
+                            Context.drawImage(Textures[3], u * Textures[3].width, 0, 1, Textures[3].height, x * Strip_Width, (Context.canvas.height - Wall_Height) * 0.5, Strip_Width, Wall_Height);
+                        }
+                        break;
+                }
+                // Context.fillRect(x*Strip_Width, (Context.canvas.height - Wall_Height)*0.5, Strip_Width, Wall_Height);
             }
-            Context.fillRect(x * Strip_Width, (Context.canvas.height - Wall_Height) * 0.5, Strip_Width, Wall_Height);
         }
     }
 }
-function Render(Context, Player, Level_Data) {
+function Render(Context, Player, Level_Data, Textures) {
     const Minimap_Pos = v2.Zero().Add(GetCanvasSize(Context).Scale(0.03));
     const Cell_Size = Context.canvas.width * 0.02;
     const Minimap_Size = GetLevelSize(Level_Data).Scale(Cell_Size);
     Context.fillStyle = "#181818";
     Context.fillRect(0, 0, Context.canvas.width, Context.canvas.height);
-    RenderGame(Context, Player, Level_Data);
+    RenderGame(Context, Player, Level_Data, Textures);
     RenderMinimap(Context, Player, Minimap_Pos, Minimap_Size, Level_Data);
 }
 function LoadImg(url) {
@@ -262,28 +277,24 @@ function LoadImg(url) {
         Img.src = url;
         Img.crossOrigin = "anonymous";
         return new Promise((resolve, reject) => {
-            Img.onload = () => {
-                const canvas = document.createElement("canvas");
-                canvas.width = Img.width;
-                canvas.height = Img.height;
-                const Context = canvas.getContext("2d");
-                if (Context === null)
-                    throw new Error("lol");
-                Context.drawImage(Img, 0, 0);
-                resolve(Context.getImageData(0, 0, Img.width, Img.height));
-            };
+            Img.onload = () => resolve(Img);
             Img.onerror = reject;
         });
     });
 }
-(() => {
+(() => __awaiter(void 0, void 0, void 0, function* () {
+    const tex01 = yield LoadImg("./textures/tile14.png");
+    const tex02 = yield LoadImg("./textures/tile15.png");
+    const tex03 = yield LoadImg("./textures/tile16.png");
+    const tex04 = yield LoadImg("./textures/tile24.png");
+    let Textures = [tex01, tex02, tex03, tex04];
     let Level_Data = [
         [1, 4, 4, 4, 4, 1, 1, 1, 1, 1, 2],
-        [2, 0, 0, 0, 0, 0, 0, 1, 0, 0, 2],
-        [3, 0, 0, 0, 0, 0, 0, 1, 0, 0, 2],
-        [4, 0, 0, 0, 0, 0, 0, 1, 0, 0, 2],
-        [3, 0, 0, 0, 0, 0, 1, 1, 0, 0, 2],
-        [2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4],
+        [2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2],
+        [3, 0, 0, 2, 0, 0, 0, 1, 0, 0, 2],
+        [4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2],
+        [3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2],
+        [2, 0, 0, 3, 0, 0, 0, 4, 0, 0, 4],
         [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4],
         [2, 4, 3, 2, 3, 1, 4, 3, 2, 3, 4],
     ];
@@ -372,12 +383,12 @@ function LoadImg(url) {
         }
         Player.direction = Player.direction + AngularVelocity * DeltaTime;
         Player.position = Player.position.Add(Velocity.Scale(DeltaTime));
-        Render(Context, Player, Level_Data);
+        Render(Context, Player, Level_Data, Textures);
         window.requestAnimationFrame(frame);
     };
     window.requestAnimationFrame((Time) => {
         PrevTime = Time;
         window.requestAnimationFrame(frame);
     });
-})();
+}))();
 //# sourceMappingURL=index.js.map
