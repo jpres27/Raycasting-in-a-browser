@@ -4,7 +4,6 @@ const FAR_PLANE = 10.0;
 const FOV = Math.PI*0.5;
 const RAYS = 600;
 const STEP_LENGTH = 0.3;
-const SPEED = 3.6;
 
 class v2 {
     x: number;
@@ -274,7 +273,7 @@ function RenderGame(Context: CanvasRenderingContext2D, Player: player, Level_Map
                 const Wall_Height = Context.canvas.height / PerpWallDist;
 
                 const t = CollisionPoint.Subtract(CollisionCell);
-                let u;
+                let u = 0;
                 if((Math.abs(t.x) < EPSILON || Math.abs(t.x - 1) < EPSILON) && t.y > 0) {
                     u = t.y;
                 } else {
@@ -332,21 +331,21 @@ async function LoadImg(url: string): Promise<HTMLImageElement> {
 
 (async () => {
     
-    const tex01 = await LoadImg("./textures/tile14.png");
+    const tex01 = await LoadImg("./textures/brick25.png");
     const tex02 = await LoadImg("./textures/tile15.png");
     const tex03 = await LoadImg("./textures/tile16.png");
     const tex04 = await LoadImg("./textures/tile24.png");
     let Textures = [tex01, tex02, tex03, tex04];
 
     let Level_Data = [
-        [1, 4, 4, 4, 4, 1, 1, 1, 1, 1, 2],
-        [2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2],
-        [3, 0, 0, 2, 0, 0, 0, 1, 0, 0, 2],
-        [4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2],
-        [3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2],
-        [2, 0, 0, 3, 0, 0, 0, 4, 0, 0, 4],
-        [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4],
-        [2, 4, 3, 2, 3, 1, 4, 3, 2, 3, 4],
+        [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+        [1, 0, 0, 2, 0, 0, 0, 2, 0, 0, 1],
+        [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+        [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+        [1, 0, 0, 3, 0, 0, 0, 4, 0, 0, 1],
+        [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+        [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
     ];
     const Game = document.getElementById("game") as (HTMLCanvasElement | null);
     if(Game === null) {
@@ -409,13 +408,14 @@ async function LoadImg(url: string): Promise<HTMLImageElement> {
     const frame = function (Time: number) {
         const DeltaTime = (Time - PrevTime)/1000;
         PrevTime = Time;
+        const PlayerSpeed = 3.6;
         let Velocity = v2.Zero();
         let AngularVelocity = 0.0;
         if(MovingFwd) {
-            Velocity = Velocity.Add(v2.FromAngle(Player.direction).Scale(SPEED));
+            Velocity = Velocity.Add(v2.FromAngle(Player.direction).Scale(PlayerSpeed));
         }
         if(MovingBwd) {
-            Velocity = Velocity.Subtract(v2.FromAngle(Player.direction).Scale(SPEED));
+            Velocity = Velocity.Subtract(v2.FromAngle(Player.direction).Scale(PlayerSpeed));
         }
         if(TurnRight) {
             AngularVelocity += Math.PI*0.9;
@@ -424,7 +424,11 @@ async function LoadImg(url: string): Promise<HTMLImageElement> {
             AngularVelocity -= Math.PI*0.9;
         }
         Player.direction = Player.direction + AngularVelocity*DeltaTime;
-        Player.position = Player.position.Add(Velocity.Scale(DeltaTime));
+        const NewPlayerP = Player.position.Add(Velocity.Scale(DeltaTime));
+        const NewCellP = new v2(Math.floor(NewPlayerP.x), Math.floor(NewPlayerP.y));
+        if(!(CheckIfWithinLevel(Level_Data, NewPlayerP) && Level_Data[NewCellP.y][NewCellP.x] !== 0)){
+            Player.position = NewPlayerP;
+        }
         Render(Context, Player, Level_Data, Textures);
         window.requestAnimationFrame(frame);
     }
