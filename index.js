@@ -12,7 +12,7 @@ const EPSILON = 1e-6;
 const NEAR_PLANE = 0.25;
 const FAR_PLANE = 10.0;
 const FOV = Math.PI * 0.5;
-const RAYS = 600;
+const RAYS = 500;
 const STEP_LENGTH = 0.3;
 class v2 {
     constructor(x, y) {
@@ -88,9 +88,10 @@ class rgba {
     }
 }
 class player {
-    constructor(position, direction) {
+    constructor(position, direction, dPlayerP) {
         this.position = position;
         this.direction = direction;
+        this.dPlayerP = dPlayerP;
     }
 }
 function GetFOV(Player) {
@@ -151,6 +152,29 @@ function RayStep(p1, p2) {
         p3 = new v2(x3, y3);
     }
     return p3;
+}
+class LevelData {
+    constructor(Cells, Width, Height) {
+        this.Cells = Cells;
+        this.Width = Width;
+        this.Height = Height;
+    }
+    Size() {
+        return new v2(this.Width, this.Height);
+    }
+    Contains(p) {
+        return (0 <= p.x) && (p.x < this.Width) && (0 <= p.y) && (p.y < this.Height);
+    }
+    GetCell(p) {
+        if (!this.Contains(p)) {
+            return undefined;
+        }
+        else {
+            const floored_p = new v2(Math.floor(p.x), Math.floor(p.y));
+            // return this.Cells[(floored_p.y*this.Height) + floored_p.x];
+            return 0;
+        }
+    }
 }
 function CheckIfWithinLevel(Level_Map, p) {
     const size = GetLevelSize(Level_Map);
@@ -308,7 +332,7 @@ function LoadImg(url) {
     if (Context === null) {
         throw new Error("2d context is null");
     }
-    let Player = new player(GetLevelSize(Level_Data).Multiply(new v2(0.83, 0.73)), Math.PI * 1.25);
+    let Player = new player(GetLevelSize(Level_Data).Multiply(new v2(0.83, 0.73)), Math.PI * 1.25, v2.Zero());
     let MovingFwd = false;
     let MovingBwd = false;
     let TurnLeft = false;
@@ -364,16 +388,19 @@ function LoadImg(url) {
     const grid_size = GetCanvasSize(Context);
     let PrevTime = 0;
     const frame = function (Time) {
-        const DeltaTime = (Time - PrevTime) / 1000;
+        const dtForFrame = (Time - PrevTime) / 1000;
         PrevTime = Time;
-        const PlayerSpeed = 3.6;
-        let Velocity = v2.Zero();
+        // let dPlayerP = v2.Zero();
         let AngularVelocity = 0.0;
+        let ddPlayerP = v2.Zero();
+        const PlayerSpeed = 20.0;
         if (MovingFwd) {
-            Velocity = Velocity.Add(v2.FromAngle(Player.direction).Scale(PlayerSpeed));
+            // Player.dPlayerP = Player.dPlayerP.Add(v2.FromAngle(Player.direction).Scale(PlayerSpeed));
+            ddPlayerP = ddPlayerP.Add(v2.FromAngle(Player.direction).Scale(PlayerSpeed));
         }
         if (MovingBwd) {
-            Velocity = Velocity.Subtract(v2.FromAngle(Player.direction).Scale(PlayerSpeed));
+            // Player.dPlayerP = Player.dPlayerP.Subtract(v2.FromAngle(Player.direction).Scale(PlayerSpeed));
+            ddPlayerP = ddPlayerP.Subtract(v2.FromAngle(Player.direction).Scale(PlayerSpeed));
         }
         if (TurnRight) {
             AngularVelocity += Math.PI * 0.9;
@@ -381,8 +408,13 @@ function LoadImg(url) {
         if (TurnLeft) {
             AngularVelocity -= Math.PI * 0.9;
         }
-        Player.direction = Player.direction + AngularVelocity * DeltaTime;
-        const NewPlayerP = Player.position.Add(Velocity.Scale(DeltaTime));
+        ddPlayerP = ddPlayerP.Add(Player.dPlayerP.Scale(-6.0));
+        const OldPlayerP = Player.position;
+        const PlayerDelta = ddPlayerP.Scale(0.5).Scale(dtForFrame * dtForFrame).Add(Player.dPlayerP.Scale(dtForFrame));
+        Player.dPlayerP = Player.dPlayerP.Add(ddPlayerP.Scale(dtForFrame));
+        const NewPlayerP = OldPlayerP.Add(PlayerDelta);
+        Player.direction = Player.direction + AngularVelocity * dtForFrame;
+        // const NewPlayerP = Player.position.Add(Player.dPlayerP.Scale(dtForFrame));
         const NewCellP = new v2(Math.floor(NewPlayerP.x), Math.floor(NewPlayerP.y));
         if (!(CheckIfWithinLevel(Level_Data, NewPlayerP) && Level_Data[NewCellP.y][NewCellP.x] !== 0)) {
             Player.position = NewPlayerP;
