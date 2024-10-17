@@ -1,5 +1,5 @@
 const EPSILON = 1e-6;
-const NEAR_PLANE = 0.25;
+const NEAR_PLANE = 0.1;
 const FAR_PLANE = 10.0;
 const FOV = Math.PI*0.5;
 const RAYS = 500;
@@ -109,10 +109,14 @@ class player {
     position: v2;
     direction: number;
     dPlayerP: v2;
-    constructor(position: v2, direction: number, dPlayerP: v2) {
+    width: number;
+    height: number;
+    constructor(position: v2, direction: number, dPlayerP: v2, width: number, height: number) {
         this.position = position;
         this.direction = direction;
         this.dPlayerP = dPlayerP;
+        this.width = width;
+        this.height = height;
     }
 }
 
@@ -219,6 +223,11 @@ class Level_Data {
             return this.cells[(floored_p.y*this.width) + floored_p.x];
         }
     }
+
+    IsWall(p: v2): boolean {
+        const Cell = this.GetCell(p);
+        return Cell!== 0 && Cell!== undefined; 
+    }
 }
 
 function CastRay(Context: CanvasRenderingContext2D, LevelData : Level_Data, p1: v2, p2: v2): v2 {
@@ -268,7 +277,11 @@ function RenderMinimap(context: CanvasRenderingContext2D, Player: player,
     }
 
     context.fillStyle = "yellow";
-    DrawFilledCircle(context, Player.position, 0.2);
+    // DrawFilledCircle(context, Player.position, 0.2);
+    context.fillRect(Player.position.x - 0.5*Player.width, 
+                     Player.position.y - 0.5*Player.height,
+                     Player.width,
+                     Player.height)
 
     const [p1, p2] = GetFOV(Player);
     
@@ -386,7 +399,7 @@ async function LoadImg(url: string): Promise<HTMLImageElement> {
             throw new Error("2d context is null");
     }
 
-    let Player = new player(LevelData.wh.Multiply(new v2(0.83, 0.73)), Math.PI*1.25, v2.Zero());
+    let Player = new player(LevelData.wh.Multiply(new v2(0.83, 0.73)), Math.PI*1.25, v2.Zero(), 0.2, 0.2);
 
     let MovingFwd = false;
     let MovingBwd = false;
@@ -461,7 +474,6 @@ async function LoadImg(url: string): Promise<HTMLImageElement> {
         const PlayerDelta = ddPlayerP.Scale(0.5).Scale(dtForFrame*dtForFrame).Add(Player.dPlayerP.Scale(dtForFrame));
         Player.dPlayerP = Player.dPlayerP.Add(ddPlayerP.Scale(dtForFrame));
         const NewPlayerP = OldPlayerP.Add(PlayerDelta);
-
 
         Player.direction = Player.direction + AngularVelocity*dtForFrame;
         

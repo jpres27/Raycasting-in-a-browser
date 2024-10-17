@@ -9,7 +9,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 const EPSILON = 1e-6;
-const NEAR_PLANE = 0.25;
+const NEAR_PLANE = 0.1;
 const FAR_PLANE = 10.0;
 const FOV = Math.PI * 0.5;
 const RAYS = 500;
@@ -88,10 +88,12 @@ class rgba {
     }
 }
 class player {
-    constructor(position, direction, dPlayerP) {
+    constructor(position, direction, dPlayerP, width, height) {
         this.position = position;
         this.direction = direction;
         this.dPlayerP = dPlayerP;
+        this.width = width;
+        this.height = height;
     }
 }
 function GetFOV(Player) {
@@ -183,6 +185,10 @@ class Level_Data {
             return this.cells[(floored_p.y * this.width) + floored_p.x];
         }
     }
+    IsWall(p) {
+        const Cell = this.GetCell(p);
+        return Cell !== 0 && Cell !== undefined;
+    }
 }
 function CastRay(Context, LevelData, p1, p2) {
     let Start = p1;
@@ -222,7 +228,8 @@ function RenderMinimap(context, Player, position, size, LevelData) {
         DrawLine(context, new v2(0, y), new v2(grid_size.x, y));
     }
     context.fillStyle = "yellow";
-    DrawFilledCircle(context, Player.position, 0.2);
+    // DrawFilledCircle(context, Player.position, 0.2);
+    context.fillRect(Player.position.x - 0.5 * Player.width, Player.position.y - 0.5 * Player.height, Player.width, Player.height);
     const [p1, p2] = GetFOV(Player);
     context.strokeStyle = "yellow";
     //DrawLine(context, Player.position, p);
@@ -329,7 +336,7 @@ function LoadImg(url) {
     if (Context === null) {
         throw new Error("2d context is null");
     }
-    let Player = new player(LevelData.wh.Multiply(new v2(0.83, 0.73)), Math.PI * 1.25, v2.Zero());
+    let Player = new player(LevelData.wh.Multiply(new v2(0.83, 0.73)), Math.PI * 1.25, v2.Zero(), 0.2, 0.2);
     let MovingFwd = false;
     let MovingBwd = false;
     let TurnLeft = false;
