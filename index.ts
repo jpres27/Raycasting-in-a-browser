@@ -307,7 +307,12 @@ function RenderMinimap(context: CanvasRenderingContext2D, Player: player,
 }
 
 function RenderFloorCeiling(Context: CanvasRenderingContext2D, Player: player, LevelData: Level_Data, Textures: HTMLImageElement[]) {
+    Context.save();
+    Context.scale(Context.canvas.width / VERT_RAYS, Context.canvas.height / HORZ_RAYS);
 
+    
+
+    Context.restore();
 }
 
 function RenderWalls(Context: CanvasRenderingContext2D, Player: player, LevelData: Level_Data, Textures: HTMLImageElement[]) {

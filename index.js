@@ -248,6 +248,9 @@ function RenderMinimap(context, Player, position, size, LevelData) {
     context.restore();
 }
 function RenderFloorCeiling(Context, Player, LevelData, Textures) {
+    Context.save();
+    Context.scale(Context.canvas.width / VERT_RAYS, Context.canvas.height / HORZ_RAYS);
+    Context.restore();
 }
 function RenderWalls(Context, Player, LevelData, Textures) {
     Context.save();
