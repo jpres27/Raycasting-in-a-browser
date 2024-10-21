@@ -99,9 +99,9 @@ class player {
         this.wh = new v2(width, height);
     }
 }
-function GetFOV(Player) {
-    const p = Player.position.Add(v2.FromAngle(Player.direction).Scale(NEAR_PLANE));
-    const l = Math.tan(FOV * 0.5) * NEAR_PLANE;
+function GetFOV(Player, ClippingPlane) {
+    const p = Player.position.Add(v2.FromAngle(Player.direction).Scale(ClippingPlane));
+    const l = Math.tan(FOV * 0.5) * ClippingPlane;
     const p1 = p.Subtract(p.Subtract(Player.position).Rot90().Normalize().Scale(l));
     const p2 = p.Add(p.Subtract(Player.position).Rot90().Normalize().Scale(l));
     return [p1, p2];
@@ -175,7 +175,6 @@ class Level_Data {
                 this.tiles.push(0);
             }
         }
-        this.floor = floor;
     }
     Contains(p) {
         return (0 <= p.x) && (p.x < this.width) && (0 <= p.y) && (p.y < this.height);
@@ -192,12 +191,6 @@ class Level_Data {
     IsWall(p) {
         const Tile = this.GetTile(p);
         return Tile !== 0 && Tile !== undefined;
-    }
-    GetFloor(p) {
-        if (!this.Contains(p))
-            return undefined;
-        // TODO: change when there is more than one floor texture
-        return this.floor;
     }
 }
 function CastRay(Context, LevelData, p1, p2) {
@@ -240,22 +233,29 @@ function RenderMinimap(context, Player, position, size, LevelData) {
     context.fillStyle = "yellow";
     // DrawFilledCircle(context, Player.position, 0.2);
     context.fillRect(Player.position.x - 0.5 * Player.width, Player.position.y - 0.5 * Player.height, Player.width, Player.height);
-    const [p1, p2] = GetFOV(Player);
-    context.strokeStyle = "yellow";
-    //DrawLine(context, Player.position, p);
-    DrawLine(context, Player.position, p1);
-    DrawLine(context, Player.position, p2);
+    {
+        const [Near1, Near2] = GetFOV(Player, NEAR_PLANE);
+        context.strokeStyle = "yellow";
+        DrawLine(context, Player.position, Near1);
+        DrawLine(context, Player.position, Near2);
+    }
     context.restore();
 }
-function RenderFloorCeiling(Context, Player, LevelData, Textures) {
+function RenderFloor(Context, Player, LevelData, Textures) {
     Context.save();
     Context.scale(Context.canvas.width / VERT_RAYS, Context.canvas.height / HORZ_RAYS);
+    Context.fillStyle = "green";
+    for (let y = Math.floor(HORZ_RAYS / 2); y < HORZ_RAYS; ++y) {
+        for (let x = 0; x < VERT_RAYS; ++x) {
+            Context.fillRect(x, y, 1, 1);
+        }
+    }
     Context.restore();
 }
 function RenderWalls(Context, Player, LevelData, Textures) {
     Context.save();
     Context.scale(Context.canvas.width / VERT_RAYS, Context.canvas.height / HORZ_RAYS);
-    const [r1, r2] = GetFOV(Player);
+    const [r1, r2] = GetFOV(Player, NEAR_PLANE);
     for (let x = 0; x < VERT_RAYS; ++x) {
         const CollisionPoint = CastRay(Context, LevelData, Player.position, r1.Lerp(r2, x / VERT_RAYS));
         const CollisionTile = HittingTile(Player.position, CollisionPoint);
@@ -309,12 +309,14 @@ function RenderWalls(Context, Player, LevelData, Textures) {
 }
 function Render(Context, Player, LevelData, Textures, DisplayMap) {
     const Minimap_Pos = v2.Zero().Add(GetCanvasSize(Context).Scale(0.03));
-    const Cell_Size = Context.canvas.width * 0.02;
+    const Cell_Size = Context.canvas.width * 0.01;
     const Minimap_Size = LevelData.wh.Scale(Cell_Size);
     Context.fillStyle = "#3D465B";
     Context.fillRect(0, 0, Context.canvas.width, Context.canvas.height);
     Context.fillStyle = "#282828";
     Context.fillRect(0, Context.canvas.height / 2, Context.canvas.width, Context.canvas.height / 2);
+    // TODO: Pass in actual floor and ceiling textures later
+    RenderFloor(Context, Player, LevelData, Textures);
     RenderWalls(Context, Player, LevelData, Textures);
     if (DisplayMap) {
         RenderMinimap(Context, Player, Minimap_Pos, Minimap_Size, LevelData);
