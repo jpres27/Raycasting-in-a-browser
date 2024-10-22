@@ -2,7 +2,7 @@ const EPSILON = 1e-6;
 const NEAR_PLANE = 0.1;
 const FAR_PLANE = 10.0;
 const FOV = Math.PI*0.5;
-const SCREEN_FACTOR = 40;
+const SCREEN_FACTOR = 20;
 const VERT_RAYS = Math.floor(16*SCREEN_FACTOR);
 const HORZ_RAYS = Math.floor(9*SCREEN_FACTOR);
 const STEP_LENGTH = 0.3;
@@ -299,13 +299,34 @@ function RenderMinimap(context: CanvasRenderingContext2D, Player: player,
 
 function RenderFloor(Context: CanvasRenderingContext2D, Player: player, LevelData: Level_Data, Textures: HTMLImageElement[]) {
     Context.save();
-    Context.scale(Context.canvas.width / VERT_RAYS, Context.canvas.height / HORZ_RAYS);
+    Context.scale(Context.canvas.width/VERT_RAYS, Context.canvas.height/HORZ_RAYS);
 
-    Context.fillStyle = "green";
+    const playerZ = HORZ_RAYS/2;
+    const [p1, p2] = GetFOV(Player, NEAR_PLANE);
+    const playerToLeftmostPixel = p1.Subtract(Player.position).Length();
 
-    for(let y = Math.floor(HORZ_RAYS/2); y < HORZ_RAYS; ++y) {
+    for(let y = 0; y < HORZ_RAYS; ++y) {
+        const screenZ = (HORZ_RAYS - y - 1);
+
+        const ap = (playerZ - screenZ)*NEAR_PLANE; 
+        const playerToFloorPoint = (playerToLeftmostPixel/ap)*playerZ;
+        const leftmostPixel = Player.position.Add(p1.Subtract(Player.position).Normalize().Scale(playerToFloorPoint));
+        const rightmostPixel = Player.position.Add(p2.Subtract(Player.position).Normalize().Scale(playerToFloorPoint));
+
         for(let x = 0; x < VERT_RAYS; ++x) {
-            Context.fillRect(x, y, 1, 1);
+            const t = leftmostPixel.Lerp(rightmostPixel, x/VERT_RAYS);
+            let Texture;
+            if(y < HORZ_RAYS/2) {
+                Texture = Textures[2];
+            }
+            else {
+                Texture = Textures[3];
+            }
+
+            const tf = new v2(t.x - Math.floor(t.x), t.y - Math.floor(t.y));
+            Context.drawImage(Texture,
+                              Math.floor(tf.x*Texture.width), Math.floor(tf.y*Texture.height), 1, 1,
+                              x, y, 1, 1); 
         }
     }
 
@@ -326,6 +347,8 @@ function RenderWalls(Context: CanvasRenderingContext2D, Player: player, LevelDat
             const d = v2.FromAngle(Player.direction);
             const PerpWallDist = v.Dot(d);
             const StripHeight = HORZ_RAYS / PerpWallDist;
+            // NOTE: This is a fun fish eye effect that could be used if the player was drunk or something
+            // const StripHeight = HORZ_RAYS / CollisionPoint.Subtract(Player.position).Length();
 
             const t = CollisionPoint.Subtract(CollisionTile);
             let u = 0;
@@ -357,9 +380,9 @@ function RenderWalls(Context: CanvasRenderingContext2D, Player: player, LevelDat
                 Context.drawImage(DrawTexture, Math.floor(u*DrawTexture.width), 0, 1, DrawTexture.height,
                     Math.floor(x), Math.floor((HORZ_RAYS - StripHeight)*0.5), 
                     Math.ceil(1), Math.ceil(StripHeight));
-                Context.fillStyle = new rgba(0, 0, 0, 1-1/PerpWallDist).String();
-                Context.fillRect(Math.floor(x), Math.floor((HORZ_RAYS - StripHeight)*0.5), 
-                    Math.ceil(1), Math.ceil(StripHeight));
+                // Context.fillStyle = new rgba(0, 0, 0, 1-1/PerpWallDist).String();
+                // Context.fillRect(Math.floor(x), Math.floor((HORZ_RAYS - StripHeight)*0.5), 
+                    // Math.ceil(1), Math.ceil(StripHeight));
             }
         }
     }
@@ -408,17 +431,17 @@ function TestWall(LevelData: Level_Data, Player: player, NewPlayerP: v2): boolea
 
 (async () => {
     
-    const tex01 = await LoadImg("./textures/Cobble_Wall.png");
-    const tex02 = await LoadImg("./textures/stone7.png");
-    const tex03 = await LoadImg("./textures/grass2.png");
-    const tex04 = await LoadImg("./textures/tile24.png");
+    const tex01 = await LoadImg("./textures/catacombs_0.png");
+    const tex02 = await LoadImg("./textures/catacombs_10.png");
+    const tex03 = await LoadImg("./textures/cobalt_rock_2.png");
+    const tex04 = await LoadImg("./textures/mud_0.png");
     let Textures = [tex01, tex02, tex03, tex04];
 
     let Cells = [
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2],
+        [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2],
+        [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2],
+        [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2],
+        [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2],
         [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 2],
         [1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 2],
         [1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 2],
@@ -427,11 +450,11 @@ function TestWall(LevelData: Level_Data, Player: player, NewPlayerP: v2): boolea
         [1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 2],
         [1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 2],
         [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 2],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2],
+        [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2],
+        [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2],
+        [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2],
+        [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2],
+        [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2],
     ];
 
     let LevelData = new Level_Data(Cells, 1);
