@@ -305,7 +305,7 @@ function RenderFloor(Context: CanvasRenderingContext2D, Player: player, LevelDat
     const [p1, p2] = GetFOV(Player, NEAR_PLANE);
     const playerToLeftmostPixel = p1.Subtract(Player.position).Length();
 
-    for(let y = 0; y < HORZ_RAYS; ++y) {
+    for(let y = HORZ_RAYS/2; y < HORZ_RAYS; ++y) {
         const screenZ = (HORZ_RAYS - y - 1);
 
         const ap = (playerZ - screenZ)*NEAR_PLANE; 
@@ -315,18 +315,42 @@ function RenderFloor(Context: CanvasRenderingContext2D, Player: player, LevelDat
 
         for(let x = 0; x < VERT_RAYS; ++x) {
             const t = leftmostPixel.Lerp(rightmostPixel, x/VERT_RAYS);
-            let Texture;
-            if(y < HORZ_RAYS/2) {
-                Texture = Textures[2];
-            }
-            else {
-                Texture = Textures[3];
-            }
+            let Texture = Textures[3];
 
             const tf = new v2(t.x - Math.floor(t.x), t.y - Math.floor(t.y));
             Context.drawImage(Texture,
                               Math.floor(tf.x*Texture.width), Math.floor(tf.y*Texture.height), 1, 1,
                               x, y, 1, 1); 
+        }
+    }
+
+    Context.restore();
+}
+
+function RenderCeiling(Context: CanvasRenderingContext2D, Player: player, LevelData: Level_Data, Textures: HTMLImageElement[]) {
+    Context.save();
+    Context.scale(Context.canvas.width/VERT_RAYS, Context.canvas.height/HORZ_RAYS);
+
+    const playerZ = HORZ_RAYS/2;
+    const [p1, p2] = GetFOV(Player, NEAR_PLANE);
+    const playerToLeftmostPixel = p1.Subtract(Player.position).Length();
+
+    for(let y = HORZ_RAYS/2; y < HORZ_RAYS; ++y) {
+        const screenZ = (HORZ_RAYS - y - 1);
+
+        const ap = (playerZ - screenZ)*NEAR_PLANE; 
+        const playerToFloorPoint = (playerToLeftmostPixel/ap)*playerZ;
+        const leftmostPixel = Player.position.Add(p1.Subtract(Player.position).Normalize().Scale(playerToFloorPoint));
+        const rightmostPixel = Player.position.Add(p2.Subtract(Player.position).Normalize().Scale(playerToFloorPoint));
+
+        for(let x = 0; x < VERT_RAYS; ++x) {
+            const t = leftmostPixel.Lerp(rightmostPixel, x/VERT_RAYS);
+            let Texture = Textures[2];
+
+            const tf = new v2(t.x - Math.floor(t.x), t.y - Math.floor(t.y));
+            Context.drawImage(Texture,
+                              Math.floor(tf.x*Texture.width), Math.floor(tf.y*Texture.height), 1, 1,
+                              x, screenZ, 1, 1); 
         }
     }
 
@@ -397,8 +421,9 @@ function Render(Context: CanvasRenderingContext2D, Player: player, LevelData: Le
     Context.fillRect(0, 0, Context.canvas.width, Context.canvas.height);
     Context.fillStyle = "#282828";
     Context.fillRect(0, Context.canvas.height/2, Context.canvas.width, Context.canvas.height/2);
-    // TODO: Pass in actual floor and ceiling textures later
+
     RenderFloor(Context, Player, LevelData, Textures);
+    RenderCeiling(Context, Player, LevelData, Textures);
     RenderWalls(Context, Player, LevelData, Textures);
     if(DisplayMap) {
         RenderMinimap(Context, Player, Minimap_Pos, Minimap_Size, LevelData);
