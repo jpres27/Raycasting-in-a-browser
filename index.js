@@ -12,7 +12,7 @@ const EPSILON = 1e-6;
 const NEAR_PLANE = 0.1;
 const FAR_PLANE = 10.0;
 const FOV = Math.PI * 0.5;
-const SCREEN_FACTOR = 20;
+const SCREEN_FACTOR = 30;
 const VERT_RAYS = Math.floor(16 * SCREEN_FACTOR);
 const HORZ_RAYS = Math.floor(9 * SCREEN_FACTOR);
 const STEP_LENGTH = 0.3;
@@ -241,9 +241,7 @@ function RenderMinimap(context, Player, position, size, LevelData) {
     }
     context.restore();
 }
-function RenderFloor(Context, Player, LevelData, Textures) {
-    Context.save();
-    Context.scale(Context.canvas.width / VERT_RAYS, Context.canvas.height / HORZ_RAYS);
+function renderFloorIntoBuffer(Buffer, Player, LevelData, Textures) {
     const playerZ = HORZ_RAYS / 2;
     const [p1, p2] = GetFOV(Player, NEAR_PLANE);
     const playerToLeftmostPixel = p1.Subtract(Player.position).Length();
@@ -255,16 +253,20 @@ function RenderFloor(Context, Player, LevelData, Textures) {
         const rightmostPixel = Player.position.Add(p2.Subtract(Player.position).Normalize().Scale(playerToFloorPoint));
         for (let x = 0; x < VERT_RAYS; ++x) {
             const t = leftmostPixel.Lerp(rightmostPixel, x / VERT_RAYS);
-            let Texture = Textures[3];
+            let color = new rgba(0, 100, 55, 255).Brightness(1 / Math.sqrt(Player.position.SqrDistanceTo(t)));
+            Buffer.data[(y * VERT_RAYS + x) * 4 + 0] = color.r;
+            Buffer.data[(y * VERT_RAYS + x) * 4 + 1] = color.g;
+            Buffer.data[(y * VERT_RAYS + x) * 4 + 2] = color.b;
+            Buffer.data[(y * VERT_RAYS + x) * 4 + 3] = color.a;
+            //let Texture = Textures[3];
             const tf = new v2(t.x - Math.floor(t.x), t.y - Math.floor(t.y));
-            Context.drawImage(Texture, Math.floor(tf.x * Texture.width), Math.floor(tf.y * Texture.height), 1, 1, x, y, 1, 1);
+            // Context.drawImage(Texture,
+            // Math.floor(tf.x*Texture.width), Math.floor(tf.y*Texture.height), 1, 1,
+            // x, y, 1, 1); 
         }
     }
-    Context.restore();
 }
-function RenderCeiling(Context, Player, LevelData, Textures) {
-    Context.save();
-    Context.scale(Context.canvas.width / VERT_RAYS, Context.canvas.height / HORZ_RAYS);
+function renderCeilingIntoBuffer(Buffer, Player, LevelData, Textures) {
     const playerZ = HORZ_RAYS / 2;
     const [p1, p2] = GetFOV(Player, NEAR_PLANE);
     const playerToLeftmostPixel = p1.Subtract(Player.position).Length();
@@ -276,25 +278,30 @@ function RenderCeiling(Context, Player, LevelData, Textures) {
         const rightmostPixel = Player.position.Add(p2.Subtract(Player.position).Normalize().Scale(playerToFloorPoint));
         for (let x = 0; x < VERT_RAYS; ++x) {
             const t = leftmostPixel.Lerp(rightmostPixel, x / VERT_RAYS);
-            let Texture = Textures[2];
+            let color = new rgba(200, 20, 55, 255).Brightness(1 / Math.sqrt(Player.position.SqrDistanceTo(t)));
+            Buffer.data[(screenZ * VERT_RAYS + x) * 4 + 0] = color.r;
+            Buffer.data[(screenZ * VERT_RAYS + x) * 4 + 1] = color.g;
+            Buffer.data[(screenZ * VERT_RAYS + x) * 4 + 2] = color.b;
+            Buffer.data[(screenZ * VERT_RAYS + x) * 4 + 3] = color.a;
+            // For drawing textures
+            //let Texture = Textures[2];
             const tf = new v2(t.x - Math.floor(t.x), t.y - Math.floor(t.y));
-            Context.drawImage(Texture, Math.floor(tf.x * Texture.width), Math.floor(tf.y * Texture.height), 1, 1, x, screenZ, 1, 1);
+            // Context.drawImage(Texture,
+            // Math.floor(tf.x*Texture.width), Math.floor(tf.y*Texture.height), 1, 1,
+            // x, screenZ, 1, 1); 
         }
     }
-    Context.restore();
 }
-function RenderWalls(Context, Player, LevelData, Textures) {
-    Context.save();
-    Context.scale(Context.canvas.width / VERT_RAYS, Context.canvas.height / HORZ_RAYS);
+function renderWallsIntoBuffer(Context, Buffer, Player, LevelData, Textures) {
     const [r1, r2] = GetFOV(Player, NEAR_PLANE);
     for (let x = 0; x < VERT_RAYS; ++x) {
         const CollisionPoint = CastRay(Context, LevelData, Player.position, r1.Lerp(r2, x / VERT_RAYS));
         const CollisionTile = HittingTile(Player.position, CollisionPoint);
         const Tile = LevelData.GetTile(CollisionTile);
         if (Tile !== 0 && Tile != undefined) {
-            const v = CollisionPoint.Subtract(Player.position);
+            const PlayerToCollisionPoint = CollisionPoint.Subtract(Player.position);
             const d = v2.FromAngle(Player.direction);
-            const PerpWallDist = v.Dot(d);
+            const PerpWallDist = PlayerToCollisionPoint.Dot(d);
             const StripHeight = HORZ_RAYS / PerpWallDist;
             // NOTE: This is a fun fish eye effect that could be used if the player was drunk or something
             // const StripHeight = HORZ_RAYS / CollisionPoint.Subtract(Player.position).Length();
@@ -310,51 +317,59 @@ function RenderWalls(Context, Player, LevelData, Textures) {
             switch (Tile) {
                 case 1:
                     {
+                        // DrawTexture = new rgba(75, 75, 75, 255);
                         DrawTexture = Textures[0];
                     }
                     break;
                 case 2:
                     {
+                        // DrawTexture = new rgba(125, 125, 125, 255);
                         DrawTexture = Textures[1];
                     }
                     break;
                 case 3:
                     {
+                        // DrawTexture = new rgba(200, 200, 200, 255);
                         DrawTexture = Textures[2];
                     }
                     break;
                 case 4:
                     {
+                        // DrawTexture = new rgba(250, 250, 250, 255);
                         DrawTexture = Textures[3];
                     }
                     break;
             }
-            // NOTE: Code that was being used to draw plain colors
-            // Context.fillRect(x*PixelWidth, (HORZ_RAYS - StripHeight)*0.5, PixelWidth, StripHeight);
-            if (DrawTexture !== undefined) {
-                Context.drawImage(DrawTexture, Math.floor(u * DrawTexture.width), 0, 1, DrawTexture.height, Math.floor(x), Math.floor((HORZ_RAYS - StripHeight) * 0.5), Math.ceil(1), Math.ceil(StripHeight));
-                // Context.fillStyle = new rgba(0, 0, 0, 1-1/PerpWallDist).String();
-                // Context.fillRect(Math.floor(x), Math.floor((HORZ_RAYS - StripHeight)*0.5), 
-                // Math.ceil(1), Math.ceil(StripHeight));
+            if (DrawTexture instanceof ImageData) {
+                for (let dy = 0; dy < Math.ceil(StripHeight); ++dy) {
+                    const v = dy / Math.ceil(StripHeight);
+                    const tx = Math.floor(u * DrawTexture.width);
+                    const ty = Math.floor(v * DrawTexture.height);
+                    let y = Math.floor((HORZ_RAYS - StripHeight) * 0.5) + dy;
+                    Buffer.data[(y * VERT_RAYS + x) * 4 + 0] = DrawTexture.data[(ty * DrawTexture.width + tx) * 4 + 0];
+                    Buffer.data[(y * VERT_RAYS + x) * 4 + 1] = DrawTexture.data[(ty * DrawTexture.width + tx) * 4 + 1];
+                    Buffer.data[(y * VERT_RAYS + x) * 4 + 2] = DrawTexture.data[(ty * DrawTexture.width + tx) * 4 + 2];
+                    Buffer.data[(y * VERT_RAYS + x) * 4 + 3] = DrawTexture.data[(ty * DrawTexture.width + tx) * 4 + 3];
+                }
+            }
+            else if (DrawTexture instanceof rgba) {
+                let color = DrawTexture.Brightness(1 / PlayerToCollisionPoint.Dot(d));
+                for (let dy = 0; dy < Math.ceil(StripHeight); ++dy) {
+                    let y = Math.floor((HORZ_RAYS - StripHeight) * 0.5) + dy;
+                    Buffer.data[(y * VERT_RAYS + x) * 4 + 0] = color.r;
+                    Buffer.data[(y * VERT_RAYS + x) * 4 + 1] = color.g;
+                    Buffer.data[(y * VERT_RAYS + x) * 4 + 2] = color.b;
+                    Buffer.data[(y * VERT_RAYS + x) * 4 + 3] = color.a;
+                }
             }
         }
     }
-    Context.restore();
 }
-function Render(Context, Player, LevelData, Textures, DisplayMap) {
-    const Minimap_Pos = v2.Zero().Add(GetCanvasSize(Context).Scale(0.03));
-    const Cell_Size = Context.canvas.width * 0.01;
-    const Minimap_Size = LevelData.wh.Scale(Cell_Size);
-    Context.fillStyle = "#3D465B";
-    Context.fillRect(0, 0, Context.canvas.width, Context.canvas.height);
-    Context.fillStyle = "#282828";
-    Context.fillRect(0, Context.canvas.height / 2, Context.canvas.width, Context.canvas.height / 2);
-    RenderFloor(Context, Player, LevelData, Textures);
-    RenderCeiling(Context, Player, LevelData, Textures);
-    RenderWalls(Context, Player, LevelData, Textures);
-    if (DisplayMap) {
-        RenderMinimap(Context, Player, Minimap_Pos, Minimap_Size, LevelData);
-    }
+function renderIntoBuffer(Context, Buffer, Player, LevelData, Textures, DisplayMap) {
+    Buffer.data.fill(255);
+    renderCeilingIntoBuffer(Buffer, Player, LevelData, Textures);
+    renderFloorIntoBuffer(Buffer, Player, LevelData, Textures);
+    renderWallsIntoBuffer(Context, Buffer, Player, LevelData, Textures);
 }
 function LoadImg(url) {
     return __awaiter(this, void 0, void 0, function* () {
@@ -379,11 +394,22 @@ function TestWall(LevelData, Player, NewPlayerP) {
     }
     return hit;
 }
+function loadImgData(url) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const image = yield LoadImg(url);
+        const Canvas = new OffscreenCanvas(image.width, image.height);
+        const Context = Canvas.getContext("2d");
+        if (Context === null)
+            throw new Error("no context loadimagedata");
+        Context.drawImage(image, 0, 0);
+        return Context.getImageData(0, 0, image.width, image.height);
+    });
+}
 (() => __awaiter(void 0, void 0, void 0, function* () {
-    const tex01 = yield LoadImg("./textures/catacombs_0.png");
-    const tex02 = yield LoadImg("./textures/catacombs_10.png");
-    const tex03 = yield LoadImg("./textures/cobalt_rock_2.png");
-    const tex04 = yield LoadImg("./textures/mud_0.png");
+    const tex01 = yield loadImgData("./textures/catacombs_0.png");
+    const tex02 = yield loadImgData("./textures/catacombs_10.png");
+    const tex03 = yield loadImgData("./textures/cobalt_rock_2.png");
+    const tex04 = yield loadImgData("./textures/mud_0.png");
     let Textures = [tex01, tex02, tex03, tex04];
     let Cells = [
         [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2],
@@ -416,6 +442,15 @@ function TestWall(LevelData, Player, NewPlayerP) {
     if (Context === null) {
         throw new Error("2d context is null");
     }
+    // Context.imageSmoothingEnabled = false;
+    const width = 16 * 20;
+    ;
+    const height = 9 * 20;
+    let Buffer = new ImageData(VERT_RAYS, HORZ_RAYS);
+    let backCanvas = new OffscreenCanvas(VERT_RAYS, HORZ_RAYS);
+    const backContext = backCanvas.getContext("2d");
+    if (backContext === null)
+        throw new Error("no backcontext");
     let Player = new player(LevelData.wh.Multiply(new v2(0.83, 0.73)), Math.PI * 1.25, v2.Zero(), 0.5, 0.5);
     let MovingFwd = false;
     let MovingBwd = false;
@@ -507,7 +542,16 @@ function TestWall(LevelData, Player, NewPlayerP) {
         if (LevelData.GetTile(NewPlayerP) === 0) {
             Player.position = NewPlayerP;
         }
-        Render(Context, Player, LevelData, Textures, DisplayMap);
+        renderIntoBuffer(Context, Buffer, Player, LevelData, Textures, DisplayMap);
+        backContext.putImageData(Buffer, 0, 0);
+        Context.drawImage(backCanvas, 0, 0, Context.canvas.width, Context.canvas.height);
+        const Minimap_Pos = v2.Zero().Add(GetCanvasSize(Context).Scale(0.03));
+        const Cell_Size = Context.canvas.width * 0.01;
+        const Minimap_Size = LevelData.wh.Scale(Cell_Size);
+        if (DisplayMap) {
+            RenderMinimap(Context, Player, Minimap_Pos, Minimap_Size, LevelData);
+        }
+        Context.fillText(`${1 / dtForFrame}`, 40, 40);
         window.requestAnimationFrame(frame);
     };
     window.requestAnimationFrame((Time) => {
