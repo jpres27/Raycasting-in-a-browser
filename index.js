@@ -12,9 +12,9 @@ const EPSILON = 1e-6;
 const NEAR_PLANE = 0.1;
 const FAR_PLANE = 10.0;
 const FOV = Math.PI * 0.5;
-const SCREEN_FACTOR = 30;
-const VERT_RAYS = Math.floor(16 * SCREEN_FACTOR);
-const HORZ_RAYS = Math.floor(9 * SCREEN_FACTOR);
+const SCREEN_FACTOR = 40;
+const SCREEN_WIDTH = Math.floor(16 * SCREEN_FACTOR);
+const SCREEN_HEIGHT = Math.floor(9 * SCREEN_FACTOR);
 const STEP_LENGTH = 0.3;
 class v2 {
     constructor(x, y) {
@@ -242,22 +242,22 @@ function RenderMinimap(context, Player, position, size, LevelData) {
     context.restore();
 }
 function renderFloorIntoBuffer(Buffer, Player, LevelData, Textures) {
-    const playerZ = HORZ_RAYS / 2;
+    const playerZ = SCREEN_HEIGHT / 2;
     const [p1, p2] = GetFOV(Player, NEAR_PLANE);
     const playerToLeftmostPixel = p1.Subtract(Player.position).Length();
-    for (let y = HORZ_RAYS / 2; y < HORZ_RAYS; ++y) {
-        const screenZ = (HORZ_RAYS - y - 1);
+    for (let y = SCREEN_HEIGHT / 2; y < SCREEN_HEIGHT; ++y) {
+        const screenZ = (SCREEN_HEIGHT - y - 1);
         const ap = (playerZ - screenZ) * NEAR_PLANE;
         const playerToFloorPoint = (playerToLeftmostPixel / ap) * playerZ;
         const leftmostPixel = Player.position.Add(p1.Subtract(Player.position).Normalize().Scale(playerToFloorPoint));
         const rightmostPixel = Player.position.Add(p2.Subtract(Player.position).Normalize().Scale(playerToFloorPoint));
-        for (let x = 0; x < VERT_RAYS; ++x) {
-            const t = leftmostPixel.Lerp(rightmostPixel, x / VERT_RAYS);
+        for (let x = 0; x < SCREEN_WIDTH; ++x) {
+            const t = leftmostPixel.Lerp(rightmostPixel, x / SCREEN_WIDTH);
             let color = new rgba(0, 100, 55, 255).Brightness(1 / Math.sqrt(Player.position.SqrDistanceTo(t)));
-            Buffer.data[(y * VERT_RAYS + x) * 4 + 0] = color.r;
-            Buffer.data[(y * VERT_RAYS + x) * 4 + 1] = color.g;
-            Buffer.data[(y * VERT_RAYS + x) * 4 + 2] = color.b;
-            Buffer.data[(y * VERT_RAYS + x) * 4 + 3] = color.a;
+            Buffer.data[(y * SCREEN_WIDTH + x) * 4 + 0] = color.r;
+            Buffer.data[(y * SCREEN_WIDTH + x) * 4 + 1] = color.g;
+            Buffer.data[(y * SCREEN_WIDTH + x) * 4 + 2] = color.b;
+            Buffer.data[(y * SCREEN_WIDTH + x) * 4 + 3] = color.a;
             //let Texture = Textures[3];
             const tf = new v2(t.x - Math.floor(t.x), t.y - Math.floor(t.y));
             // Context.drawImage(Texture,
@@ -267,22 +267,22 @@ function renderFloorIntoBuffer(Buffer, Player, LevelData, Textures) {
     }
 }
 function renderCeilingIntoBuffer(Buffer, Player, LevelData, Textures) {
-    const playerZ = HORZ_RAYS / 2;
+    const playerZ = SCREEN_HEIGHT / 2;
     const [p1, p2] = GetFOV(Player, NEAR_PLANE);
     const playerToLeftmostPixel = p1.Subtract(Player.position).Length();
-    for (let y = HORZ_RAYS / 2; y < HORZ_RAYS; ++y) {
-        const screenZ = (HORZ_RAYS - y - 1);
+    for (let y = SCREEN_HEIGHT / 2; y < SCREEN_HEIGHT; ++y) {
+        const screenZ = (SCREEN_HEIGHT - y - 1);
         const ap = (playerZ - screenZ) * NEAR_PLANE;
         const playerToFloorPoint = (playerToLeftmostPixel / ap) * playerZ;
         const leftmostPixel = Player.position.Add(p1.Subtract(Player.position).Normalize().Scale(playerToFloorPoint));
         const rightmostPixel = Player.position.Add(p2.Subtract(Player.position).Normalize().Scale(playerToFloorPoint));
-        for (let x = 0; x < VERT_RAYS; ++x) {
-            const t = leftmostPixel.Lerp(rightmostPixel, x / VERT_RAYS);
+        for (let x = 0; x < SCREEN_WIDTH; ++x) {
+            const t = leftmostPixel.Lerp(rightmostPixel, x / SCREEN_WIDTH);
             let color = new rgba(200, 20, 55, 255).Brightness(1 / Math.sqrt(Player.position.SqrDistanceTo(t)));
-            Buffer.data[(screenZ * VERT_RAYS + x) * 4 + 0] = color.r;
-            Buffer.data[(screenZ * VERT_RAYS + x) * 4 + 1] = color.g;
-            Buffer.data[(screenZ * VERT_RAYS + x) * 4 + 2] = color.b;
-            Buffer.data[(screenZ * VERT_RAYS + x) * 4 + 3] = color.a;
+            Buffer.data[(screenZ * SCREEN_WIDTH + x) * 4 + 0] = color.r;
+            Buffer.data[(screenZ * SCREEN_WIDTH + x) * 4 + 1] = color.g;
+            Buffer.data[(screenZ * SCREEN_WIDTH + x) * 4 + 2] = color.b;
+            Buffer.data[(screenZ * SCREEN_WIDTH + x) * 4 + 3] = color.a;
             // For drawing textures
             //let Texture = Textures[2];
             const tf = new v2(t.x - Math.floor(t.x), t.y - Math.floor(t.y));
@@ -294,17 +294,17 @@ function renderCeilingIntoBuffer(Buffer, Player, LevelData, Textures) {
 }
 function renderWallsIntoBuffer(Context, Buffer, Player, LevelData, Textures) {
     const [r1, r2] = GetFOV(Player, NEAR_PLANE);
-    for (let x = 0; x < VERT_RAYS; ++x) {
-        const CollisionPoint = CastRay(Context, LevelData, Player.position, r1.Lerp(r2, x / VERT_RAYS));
+    for (let x = 0; x < SCREEN_WIDTH; ++x) {
+        const CollisionPoint = CastRay(Context, LevelData, Player.position, r1.Lerp(r2, x / SCREEN_WIDTH));
         const CollisionTile = HittingTile(Player.position, CollisionPoint);
         const Tile = LevelData.GetTile(CollisionTile);
         if (Tile !== 0 && Tile != undefined) {
             const PlayerToCollisionPoint = CollisionPoint.Subtract(Player.position);
             const d = v2.FromAngle(Player.direction);
             const PerpWallDist = PlayerToCollisionPoint.Dot(d);
-            const StripHeight = HORZ_RAYS / PerpWallDist;
+            const StripHeight = SCREEN_HEIGHT / PerpWallDist;
             // NOTE: This is a fun fish eye effect that could be used if the player was drunk or something
-            // const StripHeight = HORZ_RAYS / CollisionPoint.Subtract(Player.position).Length();
+            // const StripHeight = SCREEN_HEIGHT / CollisionPoint.Subtract(Player.position).Length();
             const t = CollisionPoint.Subtract(CollisionTile);
             let u = 0;
             if ((Math.abs(t.x) < EPSILON || Math.abs(t.x - 1) < EPSILON) && t.y > 0) {
@@ -345,21 +345,21 @@ function renderWallsIntoBuffer(Context, Buffer, Player, LevelData, Textures) {
                     const v = dy / Math.ceil(StripHeight);
                     const tx = Math.floor(u * DrawTexture.width);
                     const ty = Math.floor(v * DrawTexture.height);
-                    let y = Math.floor((HORZ_RAYS - StripHeight) * 0.5) + dy;
-                    Buffer.data[(y * VERT_RAYS + x) * 4 + 0] = DrawTexture.data[(ty * DrawTexture.width + tx) * 4 + 0];
-                    Buffer.data[(y * VERT_RAYS + x) * 4 + 1] = DrawTexture.data[(ty * DrawTexture.width + tx) * 4 + 1];
-                    Buffer.data[(y * VERT_RAYS + x) * 4 + 2] = DrawTexture.data[(ty * DrawTexture.width + tx) * 4 + 2];
-                    Buffer.data[(y * VERT_RAYS + x) * 4 + 3] = DrawTexture.data[(ty * DrawTexture.width + tx) * 4 + 3];
+                    let y = Math.floor((SCREEN_HEIGHT - StripHeight) * 0.5) + dy;
+                    Buffer.data[(y * SCREEN_WIDTH + x) * 4 + 0] = DrawTexture.data[(ty * DrawTexture.width + tx) * 4 + 0];
+                    Buffer.data[(y * SCREEN_WIDTH + x) * 4 + 1] = DrawTexture.data[(ty * DrawTexture.width + tx) * 4 + 1];
+                    Buffer.data[(y * SCREEN_WIDTH + x) * 4 + 2] = DrawTexture.data[(ty * DrawTexture.width + tx) * 4 + 2];
+                    Buffer.data[(y * SCREEN_WIDTH + x) * 4 + 3] = DrawTexture.data[(ty * DrawTexture.width + tx) * 4 + 3];
                 }
             }
             else if (DrawTexture instanceof rgba) {
                 let color = DrawTexture.Brightness(1 / PlayerToCollisionPoint.Dot(d));
                 for (let dy = 0; dy < Math.ceil(StripHeight); ++dy) {
-                    let y = Math.floor((HORZ_RAYS - StripHeight) * 0.5) + dy;
-                    Buffer.data[(y * VERT_RAYS + x) * 4 + 0] = color.r;
-                    Buffer.data[(y * VERT_RAYS + x) * 4 + 1] = color.g;
-                    Buffer.data[(y * VERT_RAYS + x) * 4 + 2] = color.b;
-                    Buffer.data[(y * VERT_RAYS + x) * 4 + 3] = color.a;
+                    let y = Math.floor((SCREEN_HEIGHT - StripHeight) * 0.5) + dy;
+                    Buffer.data[(y * SCREEN_WIDTH + x) * 4 + 0] = color.r;
+                    Buffer.data[(y * SCREEN_WIDTH + x) * 4 + 1] = color.g;
+                    Buffer.data[(y * SCREEN_WIDTH + x) * 4 + 2] = color.b;
+                    Buffer.data[(y * SCREEN_WIDTH + x) * 4 + 3] = color.a;
                 }
             }
         }
@@ -446,8 +446,8 @@ function loadImgData(url) {
     const width = 16 * 20;
     ;
     const height = 9 * 20;
-    let Buffer = new ImageData(VERT_RAYS, HORZ_RAYS);
-    let backCanvas = new OffscreenCanvas(VERT_RAYS, HORZ_RAYS);
+    let Buffer = new ImageData(SCREEN_WIDTH, SCREEN_HEIGHT);
+    let backCanvas = new OffscreenCanvas(SCREEN_WIDTH, SCREEN_HEIGHT);
     const backContext = backCanvas.getContext("2d");
     if (backContext === null)
         throw new Error("no backcontext");
